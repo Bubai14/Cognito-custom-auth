@@ -63,7 +63,6 @@ public class CognitoPreSignupLambda implements RequestHandler<String, String> {
                 logger.log("PHONE CHECK REQUEST WAS NOT ACCEPTED");
                 event.getResponse().setAutoConfirmUser(false);
                 event.getResponse().setAutoVerifyPhone(false);
-
             }
         } catch (JsonProcessingException e) {
             logger.log("Error executing lambda: "+ e.toString());
