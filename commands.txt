@@ -1,0 +1,13 @@
+## Sign Up
+aws cognito-idp sign-up --username +919830540773 --password Software1# --client-id 3nevriarp47303osbpq5un9bju  --user-attributes Name=email,Value="bubaibal@amazon.com"  Name=custom:mpin,Value=1234
+
+
+
+## Tru Id
+###Create access token
+First encode the client id and secret from https://www.base64encode.org/
+
+curl -H "Authorization: Basic Y2NhMDFlZDItOTFhNS00OTY4LTk2ZjgtNWIwMGVlMGEzM2JmOngyWmwwaFouUm1JRmFJNHlOUlJBVXZVNm5O" -X POST -F 'grant_type=client_credentials'  -F 'scope=phone_check' https://IN.api.tru.id/oauth2/v1/token
+
+
+{"access_token":"xpG3VCvsHqrnwjI5FuOjC-ct0uW_x9MrIqyIzmyFafg.y_kzBHtvA-97aG5pSn-yYO16JqpFSu7a2xHEVlAhV1c","expires_in":3599,"scope":"phone_check","token_type":"bearer"}
