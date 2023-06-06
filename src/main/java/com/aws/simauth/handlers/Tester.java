@@ -22,7 +22,7 @@ public class Tester {
         Tester tester = new Tester();
         String token = "Bearer "+ tester.getAccessToken();
         System.out.println("TOKEN: "+token);
-        Map<String, String> map = tester.phoneCheck(token, "+919830540773");
+        Map<String, String> map = tester.subscriberCheck(token, "+919830540773");
         String url = map.get("check_url");
         String checkId = map.get("check_id");
         String code = tester.redirect(token, url);
@@ -57,7 +57,7 @@ public class Tester {
         return token;
     }
 
-    private Map<String, String> phoneCheck(String token, String phoneNumber) throws JsonProcessingException {
+    private Map<String, String> subscriberCheck(String token, String phoneNumber) throws JsonProcessingException {
         Random random = new Random();
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode node = mapper.createObjectNode();

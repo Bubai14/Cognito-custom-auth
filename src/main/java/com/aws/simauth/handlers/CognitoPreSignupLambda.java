@@ -32,7 +32,7 @@ public class CognitoPreSignupLambda implements RequestHandler<String, String> {
     @Override
     public String handleRequest(String s, Context context) {
         logger = context.getLogger();
-        logger.log("EVENT: " + gson.toJson(s));
+        logger.log("EVENT: " + s);
         SignUpEvent event = null;
         try {
             event = mapper.readValue(s, SignUpEvent.class);
@@ -79,7 +79,7 @@ public class CognitoPreSignupLambda implements RequestHandler<String, String> {
         logger.log("Creating the token call");
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://IN.api.tru.id/oauth2/v1/token"))
-                .header("Authorization", "Basic Y2NhMDFlZDItOTFhNS00OTY4LTk2ZjgtNWIwMGVlMGEzM2JmOngyWmwwaFouUm1JRmFJNHlOUlJBVXZVNm5O")
+                .header("Authorization", "Basic "+ System.getenv("CREDENTIAL"))
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(HttpRequest.BodyPublishers.ofString(urlEncodeParamsBuilder.toString()))
                 .build();
