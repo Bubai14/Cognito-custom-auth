@@ -3,16 +3,14 @@ package com.aws.simauth.handlers;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
-import com.amazonaws.services.lambda.runtime.RequestHandler;
-import com.aws.simauth.models.SignUpEvent;
+import com.amazonaws.services.lambda.runtime.RequestStreamHandler;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -23,51 +21,53 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
-public class CognitoPreSignupLambda implements RequestHandler<String, String> {
+public class CognitoPreSignupLambda implements RequestStreamHandler {
 
-    Gson gson = new GsonBuilder().setPrettyPrinting().create();
     ObjectMapper mapper = new ObjectMapper();
     LambdaLogger logger = null;
 
     @Override
-    public String handleRequest(String s, Context context) {
+    public void handleRequest(InputStream inputStream, OutputStream outputStream, Context context) {
         logger = context.getLogger();
-        logger.log("EVENT: " + s);
-        SignUpEvent event = null;
         try {
-            event = mapper.readValue(s, SignUpEvent.class);
+            JsonNode mainNode = mapper.readTree(inputStream);
+            logger.log("EVENT: "+ mainNode.toString());
+            JsonNode responseNode = mainNode.get("response");
             // Get the access token
             String token = "Bearer "+ getAccessToken();
             logger.log("TOKEN: "+ token);
             // Initiate the phone check workflow
             Map<String, String> phoneCheckResponse = phoneCheck(token,
-                    event.getRequest()
-                            .getUserAttributes().get("phone_number"));
+                    mainNode.get("request").get("userAttributes").get("phone_number").asText());
             if(phoneCheckResponse.get("status").equals("ACCEPTED")) {
                 logger.log("PHONE CHECK STATUS: ACCEPTED");
                 // Invoke the redirect url
                 String code = redirect(token, phoneCheckResponse.get("check_url"));
                 // Complete the phone check
                 Map<String, String> completedResponse = completePhoneCheck(token, phoneCheckResponse.get("check_id"), code);
+                logger.log("status: "+completedResponse.get("status")+" | match: "+Boolean.valueOf(completedResponse.get("match")));
                 if(completedResponse.get("status").equals("COMPLETED")
-                        && completedResponse.get("match").equals(Boolean.TRUE)) {
+                        && Boolean.valueOf(completedResponse.get("match"))) {
                     logger.log("PHONE CHECK MATCHED");
-                    event.getResponse().setAutoConfirmUser(true);
-                    event.getResponse().setAutoVerifyPhone(true);
+                    ((ObjectNode) responseNode).put("autoConfirmUser", true);
+                    ((ObjectNode) responseNode).put("autoVerifyPhone", true);
                 } else {
                     logger.log("PHONE CHECK DID NOT MATCH");
-                    event.getResponse().setAutoConfirmUser(false);
-                    event.getResponse().setAutoVerifyPhone(false);
+                    ((ObjectNode) responseNode).put("autoConfirmUser", false);
+                    ((ObjectNode) responseNode).put("autoVerifyPhone", false);
                 }
             } else {
                 logger.log("PHONE CHECK REQUEST WAS NOT ACCEPTED");
-                event.getResponse().setAutoConfirmUser(false);
-                event.getResponse().setAutoVerifyPhone(false);
+                ((ObjectNode) responseNode).put("autoConfirmUser", false);
+                ((ObjectNode) responseNode).put("autoVerifyPhone", false);
             }
+            logger.log("output "+mainNode.toString());
+            mapper.writeValue(outputStream, mainNode);
         } catch (JsonProcessingException e) {
             logger.log("Error executing lambda: "+ e.toString());
+        } catch (IOException e) {
+            logger.log("Error executing lambda: "+ e.toString());
         }
-        return gson.toJson(event);
     }
 
     private String getAccessToken() {
@@ -77,9 +77,11 @@ public class CognitoPreSignupLambda implements RequestHandler<String, String> {
                 .append("&").append("scope").append("=")
                 .append(URLEncoder.encode("phone_check",  StandardCharsets.UTF_8));
         logger.log("Creating the token call");
+        String credential = System.getenv("CREDENTIAL");
+        logger.log("CREDENTIAL: "+ credential);
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://IN.api.tru.id/oauth2/v1/token"))
-                .header("Authorization", "Basic "+ System.getenv("CREDENTIAL"))
+                .header("Authorization", "Basic "+ credential)
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(HttpRequest.BodyPublishers.ofString(urlEncodeParamsBuilder.toString()))
                 .build();
