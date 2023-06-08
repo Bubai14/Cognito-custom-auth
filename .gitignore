@@ -1,2 +1,9 @@
 .idea
-target
+target/archive-tmp
+target/classes
+target/generated-sources
+target/maven-archiver
+target/generated-test-sources
+target/surefire-reports
+target/maven-status
+target/test-classes
