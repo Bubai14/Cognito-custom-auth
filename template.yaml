@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Cognito authentication with custom attributes
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 120
+    MemorySize: 128
+
+Resources:
+  MobileUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      AutoVerifiedAttributes:
+        - email
+      Schema:
+        - AttributeDataType: "Number"
+          Name: mpin
+      UserPoolName: !Sub ${AWS::StackName}-MobileUserPool
+      MfaConfiguration: "OFF"
+      UsernameAttributes:
+        - phone_number
+      LambdaConfig:
+        PreSignUp: !GetAtt CognitoPreSignupFunction.Arn
+        PreAuthentication: !GetAtt CognitoPreAuthFunction.Arn
+  MobileClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref MobileUserPool
+      ClientName: MobileClient
+      ExplicitAuthFlows:
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+  CognitoPreAuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: !Sub
+        - Stack ${AWS::StackName} Function ${ResourceName}
+        - ResourceName: CognitoPreAuthFunction
+      PackageType: Zip
+      CodeUri: .
+      Handler: com.aws.auth.handlers.CognitoPreAuthLambda::handleRequest
+      Runtime: java11
+      MemorySize: 3008
+      Timeout: 30
+      Tracing: Active
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: "*"
+  CognitoPreSignupFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: !Sub
+        - Stack ${AWS::StackName} Function ${ResourceName}
+        - ResourceName: CognitoPreSignupFunction
+      PackageType: Zip
+      CodeUri: .
+      Handler: com.aws.auth.handlers.CognitoPreSignupLambda::handleRequest
+      Runtime: java11
+      MemorySize: 3008
+      Timeout: 30
+      Tracing: Active
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: "*"
+  CognitoLambdaPreSignupPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt CognitoPreSignupFunction.Arn
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt MobileUserPool.Arn
+  CognitoLambdaPreAuthPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt CognitoPreAuthFunction.Arn
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt MobileUserPool.Arn
+  CognitoPreAuthFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${CognitoPreAuthFunction}
+  CognitoPreSignupFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Retain
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${CognitoPreSignupFunction}
+
+Outputs:
+  MobileClientId:
+    Description: "The client of the mobile client"
+    Value:
+      Ref: MobileClient
