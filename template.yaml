@@ -103,6 +103,6 @@ Resources:
 
 Outputs:
   MobileClientId:
-    Description: "The client of the mobile client"
+    Description: "The client ID of the mobile client"
     Value:
       Ref: MobileClient
